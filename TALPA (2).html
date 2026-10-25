@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>TALPA</title>
+<style>
+:root{--bg:#f4efe6;--fg:#2b2620;--sub:#6e655a;--tunnel:#ffffff;--grid:#a8957a;--blk:#2b6cd9;--wht:#e0443d;--wht-b:#9c2a25;--hl:#e0a100;--ok:#2f8f5b;--card:#fffaf0;--btn:#2b2620;--btnfg:#fbf8f1;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1c1915;--fg:#eee7da;--sub:#a79d8d;--tunnel:#ffffff;--grid:#6b5d4b;--blk:#4a8cf0;--wht:#f0605a;--wht-b:#b8302a;--hl:#f0b429;--ok:#4cc38a;--card:#26221c;--btn:#eee7da;--btnfg:#1c1915}}
+:root[data-theme="dark"]{--bg:#1c1915;--fg:#eee7da;--sub:#a79d8d;--tunnel:#ffffff;--grid:#6b5d4b;--blk:#4a8cf0;--wht:#f0605a;--wht-b:#b8302a;--hl:#f0b429;--ok:#4cc38a;--card:#26221c;--btn:#eee7da;--btnfg:#1c1915}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--fg);font-family:-apple-system,"Hiragino Sans","Noto Sans JP",system-ui,sans-serif;min-height:100%;padding:16px;display:flex;flex-direction:column;align-items:center;gap:12px}
+h1{margin:4px 0 0;font-size:28px;letter-spacing:.3em}
+.status{font-size:16px;min-height:24px;text-align:center;font-weight:600}
+.sub{font-size:13px;color:var(--sub);text-align:center;max-width:460px;line-height:1.5}
+.wrap{position:relative;padding:30px;background:var(--card);border-radius:14px;border:1px solid var(--grid)}
+.bar{position:absolute;border-radius:5px}
+.bar.B{background:var(--blk);border:1px solid color-mix(in srgb,var(--blk) 62%,#000)}
+.bar.W{background:var(--wht);border:1px solid color-mix(in srgb,var(--wht) 62%,#000)}
+.bar.t,.bar.b{left:30px;right:30px;height:10px}.bar.t{top:15px}.bar.b{bottom:15px}
+.bar.l,.bar.r{top:30px;bottom:30px;width:10px}.bar.l{left:15px}.bar.r{right:15px}
+.board{--line:color-mix(in srgb,var(--tunnel) 68%,#000);display:grid;grid-template-columns:repeat(8,1fr);width:min(calc(100vw - 100px),440px);aspect-ratio:1;gap:2px;background:var(--line);border:2px solid var(--line)}
+.cell{background:var(--tunnel);position:relative;display:flex;align-items:center;justify-content:center;padding:0;border:0;cursor:default}
+.cell.path{background:var(--ok)}
+.dot{position:absolute;left:50%;top:50%;width:26%;height:26%;transform:translate(-50%,-50%);border-radius:50%;background:#ffd23f;box-shadow:0 0 0 2px rgba(0,0,0,.65);pointer-events:none}
+.stone{width:78%;height:78%;border-radius:3px;box-shadow:0 2px 3px rgba(0,0,0,.35)}
+.stone.B{background:var(--blk);border:2px solid color-mix(in srgb,var(--blk) 62%,#000)}.stone.W{background:var(--wht);border:2px solid color-mix(in srgb,var(--wht) 62%,#000)}
+.cell.sel{outline:3px solid var(--hl);outline-offset:-3px;z-index:1}
+.cell.tgt{outline:3px dashed var(--hl);outline-offset:-3px}
+.cell.mine{cursor:pointer}
+.cell.tgt,.cell.rem{cursor:pointer}
+.cell.rem:hover .stone,.cell.tgt:hover .stone{transform:scale(.88)}
+.row{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.lbl{font-size:13px;color:var(--sub);align-self:center;min-width:3.5em;text-align:right}
+#opts{flex-direction:column;gap:8px;align-items:center}
+#opts .row{align-items:center}
+button.ui{font:inherit;font-size:14px;padding:8px 14px;border-radius:999px;border:1px solid var(--fg);background:transparent;color:var(--fg);cursor:pointer}
+button.ui.on{background:var(--btn);color:var(--btnfg)}
+button.ui:disabled{opacity:.4;cursor:default}
+#settings{display:none;flex-direction:column;gap:10px;width:min(100%,340px);background:var(--card);border:1px solid var(--grid);border-radius:12px;padding:14px 16px}
+.set-row{display:flex;align-items:center;justify-content:space-between;gap:16px;font-size:14px}
+input[type=color]{width:48px;height:32px;padding:0;border:1px solid var(--grid);border-radius:6px;background:none;cursor:pointer}
+details{max-width:460px;font-size:13px;color:var(--sub);line-height:1.7}
+summary{cursor:pointer;color:var(--fg);font-weight:600}
+</style>
+</head>
+<body>
+<h1>TALPA</h1>
+<div class="status" id="status"></div>
+<div class="wrap">
+  <div class="bar t B"></div><div class="bar b B"></div>
+  <div class="bar l W"></div><div class="bar r W"></div>
+  <div class="board" id="board"></div>
+</div>
+<div class="row">
+  <button class="ui" id="m2">2人で対戦</button>
+  <button class="ui" id="m1">CPUと対戦</button>
+  <button class="ui" id="undo">一手戻す</button>
+  <button class="ui" id="reset">最初から</button>
+  <button class="ui" id="setBtn">設定</button>
+</div>
+<div id="settings">
+  <div class="set-row"><span>縦（先手）の駒の色</span><input type="color" id="col-a"></div>
+  <div class="set-row"><span>横（後手）の駒の色</span><input type="color" id="col-b"></div>
+  <div class="set-row"><span>盤の色</span><input type="color" id="col-c"></div>
+  <button class="ui" id="setReset">初期設定に戻す</button>
+</div>
+<div id="opts" style="display:none">
+  <div class="row"><span class="lbl">CPUの強さ</span>
+    <button class="ui" data-lv="0">弱い</button><button class="ui" data-lv="1">普通</button><button class="ui" data-lv="2">強い</button><button class="ui" data-lv="3">最強</button></div>
+  <div class="row"><span class="lbl">あなたの手番</span>
+    <button class="ui" data-side="B">先手（縦）</button><button class="ui" data-side="W">後手（横）</button><button class="ui" data-side="R">ランダム</button></div>
+</div>
+<div class="sub" id="phase"></div>
+<details>
+  <summary>ルール</summary>
+  <p><strong>【目的】</strong><br>TALPAは、相手のコマを取りながら、盤面に空白の道を作る2人用ボードゲームです。<br>先手は盤面の上下、後手は左右を空白マスでつなぐと勝利します。ただし、両者の道が同時につながる手を打った場合、その手を打ったプレイヤーの負けとなります。</p>
+  <p><strong>【操作】</strong></p>
+  <ul>
+    <li>自分のコマを上下左右に1マス動かし、移動先にある相手のコマを取ります。</li>
+    <li>相手のコマがないマスには移動できません。</li>
+    <li>相手のコマを取れる場合は、必ず取らなければなりません。</li>
+    <li>相手のコマを取れず、移動できる手もない場合は、自分のコマを1つ取り除きます。</li>
+  </ul>
+</details>
+<script>
+(function(){
+var N=8,boardEl=document.getElementById('board'),statusEl=document.getElementById('status'),phaseEl=document.getElementById('phase');
+var g,sel,cpu=false,busy=false,level=1,sideChoice='B',cpuSide=null,hist=[];
+var NAME={B:'縦（先手）',W:'横（後手）'};
+var opp=function(p){return p==='B'?'W':'B'};
+function init(){
+  hist=[];g={b:[],turn:'B',over:false,path:null,last:null};
+  for(var r=0;r<N;r++){g.b[r]=[];for(var c=0;c<N;c++)g.b[r][c]=(r+c)%2===0?'B':'W'}
+  var hs=sideChoice==='R'?(Math.random()<.5?'B':'W'):sideChoice;cpuSide=cpu?opp(hs):null;sel=null;busy=false;render();maybeCpu();
+}
+function caps(b,p){
+  var out=[];
+  for(var r=0;r<N;r++)for(var c=0;c<N;c++)if(b[r][c]===p){
+    [[1,0],[-1,0],[0,1],[0,-1]].forEach(function(d){
+      var y=r+d[0],x=c+d[1];
+      if(y>=0&&y<N&&x>=0&&x<N&&b[y][x]===opp(p))out.push([r,c,y,x]);
+    });
+  }
+  return out;
+}
+function findPath(b,p){
+  var seen={},stack=[],par={};
+  for(var i=0;i<N;i++){var r=p==='B'?0:i,c=p==='B'?i:0;if(!b[r][c]){seen[r*N+c]=1;stack.push([r,c]);par[r*N+c]=-1}}
+  while(stack.length){
+    var cur=stack.pop(),r=cur[0],c=cur[1];
+    if((p==='B'&&r===N-1)||(p==='W'&&c===N-1)){var path=[],k=r*N+c;while(k!==-1){path.push(k);k=par[k]}return path}
+    [[1,0],[-1,0],[0,1],[0,-1]].forEach(function(d){
+      var y=r+d[0],x=c+d[1];
+      if(y>=0&&y<N&&x>=0&&x<N&&!b[y][x]&&!seen[y*N+x]){seen[y*N+x]=1;par[y*N+x]=r*N+c;stack.push([y,x])}
+    });
+  }
+  return null;
+}
+function dist(b,p){
+  var INF=99,d=[],dq=[];
+  for(var i=0;i<N*N;i++)d[i]=INF;
+  for(var i=0;i<N;i++){var r=p==='B'?0:i,c=p==='B'?i:0,w=b[r][c]?1:0;d[r*N+c]=w;dq.push([r,c])}
+  var q=dq.slice();
+  while(q.length){
+    q.sort(function(a,b2){return d[a[0]*N+a[1]]-d[b2[0]*N+b2[1]]});
+    var cur=q.shift(),r=cur[0],c=cur[1],cd=d[r*N+c];
+    [[1,0],[-1,0],[0,1],[0,-1]].forEach(function(dd){
+      var y=r+dd[0],x=c+dd[1];if(y<0||y>=N||x<0||x>=N)return;
+      var nd=cd+(b[y][x]?1:0);
+      if(nd<d[y*N+x]){d[y*N+x]=nd;q.push([y,x])}
+    });
+  }
+  var best=INF;
+  for(var i=0;i<N;i++){var r=p==='B'?N-1:i,c=p==='B'?i:N-1;best=Math.min(best,d[r*N+c])}
+  return best;
+}
+function finish(p){
+  var who=p;var path=findPath(g.b,p);
+  g.over=true;g.path=path;g.winner=who;
+}
+function afterMove(mover){
+  var o=findPath(g.b,opp(mover));
+  if(o){finish(opp(mover));return}
+  var m=findPath(g.b,mover);
+  if(m){finish(mover);return}
+  g.turn=opp(mover);
+  // skip if no stones and no captures
+  var has=false;for(var r=0;r<N&&!has;r++)for(var c=0;c<N;c++)if(g.b[r][c]===g.turn){has=true;break}
+  if(!has)g.turn=mover;
+}
+function doCapture(m){
+  hist.push(snap());var p=g.turn;
+  function apply(){
+    busy=false;g.b[m[0]][m[1]]=null;g.b[m[2]][m[3]]=p;g.last=[m[0]*N+m[1],m[2]*N+m[3]];sel=null;afterMove(p);render();maybeCpu();
+  }
+  var from=boardEl.children[m[0]*N+m[1]],to=boardEl.children[m[2]*N+m[3]];
+  var st=from&&from.querySelector('.stone'),tst=to&&to.querySelector('.stone');
+  var reduce=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if(!st||!tst||!st.animate||reduce){apply();return}
+  busy=true;
+  var wrap=boardEl.parentNode,wr=wrap.getBoundingClientRect(),sr=st.getBoundingClientRect(),tr=tst.getBoundingClientRect();
+  var clone=st.cloneNode(false);
+  clone.style.cssText='position:absolute;margin:0;z-index:5;pointer-events:none;left:'+(sr.left-wr.left)+'px;top:'+(sr.top-wr.top)+'px;width:'+sr.width+'px;height:'+sr.height+'px';
+  wrap.appendChild(clone);
+  st.style.visibility='hidden';
+  var dx=tr.left-sr.left,dy=tr.top-sr.top,dur=340;
+  tst.animate([{opacity:1,transform:'scale(1)'},{opacity:1,transform:'scale(1)',offset:.65},{opacity:0,transform:'scale(.7)'}],{duration:dur,fill:'forwards'});
+  var a=clone.animate([{transform:'translate(0,0)'},{transform:'translate('+dx+'px,'+dy+'px)'}],{duration:dur,easing:'ease-in-out',fill:'forwards'});
+  a.onfinish=function(){clone.remove();apply()};
+}
+function snap(){return{b:g.b.map(function(r){return r.slice()}),turn:g.turn,over:g.over,path:g.path,winner:g.winner,last:g.last}}
+function canUndo(){
+  if(busy)return false;
+  return cpu?hist.some(function(h){return h.turn!==cpuSide}):hist.length>0;
+}
+function undo(){
+  if(!canUndo())return;
+  var s=hist.pop();
+  if(cpu)while(s.turn===cpuSide)s=hist.pop();
+  g.b=s.b;g.turn=s.turn;g.over=s.over;g.path=s.path;g.winner=s.winner;g.last=s.last;sel=null;
+  render();maybeCpu();
+}
+function doRemove(r,c){
+  hist.push(snap());var p=g.turn;g.b[r][c]=null;g.last=[r*N+c];sel=null;afterMove(p);render();maybeCpu();
+}
+function render(){
+  boardEl.innerHTML='';
+  var p=g.turn,cs=caps(g.b,p),mustCap=cs.length>0&&!g.over;
+  var pathSet={};if(g.path)g.path.forEach(function(k){pathSet[k]=1});
+  var movable={};cs.forEach(function(m){movable[m[0]*N+m[1]]=1});
+  var tg={};if(sel)cs.forEach(function(m){if(m[0]===sel[0]&&m[1]===sel[1])tg[m[2]*N+m[3]]=m});
+  for(var r=0;r<N;r++)for(var c=0;c<N;c++){
+    var k=r*N+c,v=g.b[r][c],el=document.createElement('button');
+    el.className='cell';el.type='button';
+    if(pathSet[k])el.classList.add('path');
+    if(v){var s=document.createElement('div');s.className='stone '+v;el.appendChild(s)}
+    if(g.last&&g.last.indexOf(k)>=0){var dt=document.createElement('div');dt.className='dot';el.appendChild(dt)}
+    var human=!g.over&&!busy&&p!==cpuSide;
+    if(human){
+      if(mustCap){
+        if(movable[k]&&v===p)el.classList.add('mine');
+        if(sel&&sel[0]===r&&sel[1]===c)el.classList.add('sel');
+        if(tg[k])el.classList.add('tgt');
+      }else if(v===p)el.classList.add('rem');
+    }
+    el.setAttribute('aria-label',(r+1)+'行'+(c+1)+'列 '+(v?NAME[v]:'空き'));
+    el.addEventListener('click',(function(r,c,k,v,mustCap,human,tg,movable){return function(){
+      if(!human||busy)return;
+      if(mustCap){
+        if(tg[k]){doCapture(tg[k]);return}
+        if(v===g.turn&&movable[k]){sel=[r,c];render()}
+      }else if(v===g.turn)doRemove(r,c);
+    }})(r,c,k,v,mustCap,human,tg,movable));
+    boardEl.appendChild(el);
+  }
+  if(g.over){
+    statusEl.textContent=NAME[g.winner]+'の勝ち！ トンネルが開通しました';
+    phaseEl.textContent='「最初から」で新しいゲームを始められます。';
+  }else{
+    statusEl.textContent=NAME[p]+'の番'+(p===cpuSide?'（CPU）':'');
+    phaseEl.textContent=mustCap?'取れる石があるので、必ず取らなければなりません。自分の石を選んで、隣の相手の石へ動かしてください。':'取れる石がありません。自分の石を1つ選んで取り除いてください。';
+  }
+  document.getElementById('m2').classList.toggle('on',!cpu);
+  document.getElementById('m1').classList.toggle('on',cpu);
+  document.getElementById('opts').style.display=cpu?'flex':'none';
+  document.getElementById('undo').disabled=!canUndo();
+  Array.prototype.forEach.call(document.querySelectorAll('[data-lv]'),function(b){b.classList.toggle('on',+b.dataset.lv===level)});
+  Array.prototype.forEach.call(document.querySelectorAll('[data-side]'),function(b){b.classList.toggle('on',b.dataset.side===sideChoice)});
+  if(cpu&&!g.over)phaseEl.textContent='あなたは'+NAME[opp(cpuSide)]+'です。'+phaseEl.textContent;
+}
+function succ(b,p){
+  var out=[],cs=caps(b,p),nb;
+  if(cs.length){
+    cs.forEach(function(m){nb=b.map(function(r){return r.slice()});nb[m[0]][m[1]]=null;nb[m[2]][m[3]]=p;out.push({b:nb,mv:m,t:'c'})});
+  }else{
+    for(var r=0;r<N;r++)for(var c=0;c<N;c++)if(b[r][c]===p){nb=b.map(function(x){return x.slice()});nb[r][c]=null;out.push({b:nb,mv:[r,c],t:'r'})}
+  }
+  return out;
+}
+function evalPos(b,me,mover){
+  var w=findPath(b,opp(mover))?opp(mover):(findPath(b,mover)?mover:null);
+  if(w)return w===me?1000:-1000;
+  return dist(b,opp(me))-dist(b,me);
+}
+function replyMin(b,mover,me){
+  var ss=succ(b,opp(mover)),best=1e9;
+  if(!ss.length)return evalPos(b,me,mover);
+  ss.forEach(function(s){var v=evalPos(s.b,me,opp(mover));if(v<best)best=v});
+  return best;
+}
+var DR=[1,-1,0,0],DC=[0,0,1,-1],DQ=new Int16Array(2048);
+function fastDist(b,p){
+  var d=new Int8Array(64),h=1024,t=1024,i,k;
+  for(i=0;i<64;i++)d[i]=99;
+  for(i=0;i<N;i++){var r0=p==='B'?0:i,c0=p==='B'?i:0,w0=b[r0][c0]?1:0;k=r0*N+c0;if(w0<d[k]){d[k]=w0;if(w0)DQ[t++]=k;else DQ[--h]=k}}
+  while(h<t){
+    k=DQ[h++];var r=k>>3,c=k&7,cd=d[k];
+    for(var j=0;j<4;j++){
+      var y=r+DR[j],x=c+DC[j];if(y<0||y>=N||x<0||x>=N)continue;
+      var w=b[y][x]?1:0,nd=cd+w,nk=y*N+x;
+      if(nd<d[nk]){d[nk]=nd;if(w)DQ[t++]=nk;else DQ[--h]=nk}
+    }
+  }
+  var best=99;
+  for(i=0;i<N;i++){var kk=p==='B'?(N-1)*N+i:i*N+N-1;if(d[kk]<best)best=d[kk]}
+  return best;
+}
+// 直前に打った側(mv)から見た評価値
+function leaf(b,mv,dp){
+  var od=fastDist(b,opp(mv));
+  if(od===0)return -(1000+dp);
+  var md=fastDist(b,mv);
+  if(md===0)return 1000+dp;
+  return od-md;
+}
+var deadline=0,timeUp=false,nodes=0;
+function negamax(b,mover,depth,alpha,beta){
+  if((++nodes&127)===0&&Date.now()>deadline)timeUp=true;
+  if(timeUp)return 0;
+  var ss=succ(b,mover),i;
+  if(!ss.length)return 0;
+  for(i=0;i<ss.length;i++)ss[i].v=leaf(ss[i].b,mover,depth);
+  if(depth>1)ss.sort(function(x,y){return y.v-x.v});
+  var best=-1e9;
+  for(i=0;i<ss.length;i++){
+    var s=ss[i],v=s.v;
+    if(depth>1&&Math.abs(v)<1000){v=-negamax(s.b,opp(mover),depth-1,-beta,-alpha);if(timeUp)return 0}
+    if(v>best)best=v;
+    if(v>alpha)alpha=v;
+    if(alpha>=beta)break;
+  }
+  return best;
+}
+function searchBest(p){
+  var ss=succ(g.b,p),i;
+  ss.sort(function(){return Math.random()-.5});
+  ss.forEach(function(s){s.v=leaf(s.b,p,12)});
+  ss.sort(function(x,y){return y.v-x.v});
+  var best=ss[0];
+  if(Math.abs(best.v)>=1000)return best;
+  deadline=Date.now()+1200;timeUp=false;nodes=0;
+  for(var d=2;d<=12;d++){
+    var alpha=-1e9,cur=null;
+    for(i=0;i<ss.length;i++){
+      var s=ss[i],v=s.v;
+      if(Math.abs(v)<1000){v=-negamax(s.b,opp(p),d-1,-1e9,-alpha);if(timeUp)break}
+      s.v2=v;
+      if(v>alpha){alpha=v;cur=s}
+    }
+    if(timeUp||!cur)break;
+    best=cur;
+    ss.forEach(function(s){if(s.v2===undefined)s.v2=-1e9});
+    ss.sort(function(x,y){return x===best?-1:y===best?1:y.v2-x.v2});
+    ss.forEach(function(s){s.v=Math.abs(s.v)>=1000?s.v:s.v});
+    if(Math.abs(alpha)>=1000)break;
+  }
+  return best;
+}
+function maybeCpu(){
+  if(!cpu||g.over||g.turn!==cpuSide)return;
+  busy=true;
+  setTimeout(function(){
+    var p=cpuSide,ss=succ(g.b,p),pick=null,bs=-1e9;
+    if(!ss.length){busy=false;render();return}
+    if(level===3)pick=searchBest(p);else ss.forEach(function(s){
+      var v;
+      if(level===0)v=Math.random();
+      else{
+        v=evalPos(s.b,p,p);
+        if(level===2&&Math.abs(v)<1000)v=replyMin(s.b,p,p);
+        v+=Math.random()*(level===1?1.5:.3);
+      }
+      if(v>bs){bs=v;pick=s}
+    });
+    busy=false;
+    if(pick.t==='c')doCapture(pick.mv);else doRemove(pick.mv[0],pick.mv[1]);
+  },550);
+}
+Array.prototype.forEach.call(document.querySelectorAll('[data-lv]'),function(b){b.onclick=function(){level=+b.dataset.lv;init()}});
+Array.prototype.forEach.call(document.querySelectorAll('[data-side]'),function(b){b.onclick=function(){sideChoice=b.dataset.side;init()}});
+var SK='talpa-settings',S={a:null,b:null,c:null},VARS={a:'--blk',b:'--wht',c:'--tunnel'};
+function defs(){var d=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches;return d?{a:'#4a8cf0',b:'#f0605a',c:'#ffffff'}:{a:'#2b6cd9',b:'#e0443d',c:'#ffffff'}}
+try{var raw=localStorage.getItem(SK);if(raw){var o=JSON.parse(raw);['a','b','c'].forEach(function(k){if(/^#[0-9a-f]{6}$/i.test(o[k]))S[k]=o[k]})}}catch(e){}
+function applySettings(){var d=defs(),st=document.documentElement.style;['a','b','c'].forEach(function(k){if(S[k])st.setProperty(VARS[k],S[k]);else st.removeProperty(VARS[k]);document.getElementById('col-'+k).value=S[k]||d[k]})}
+function saveSettings(){try{localStorage.setItem(SK,JSON.stringify(S))}catch(e){}}
+['a','b','c'].forEach(function(k){document.getElementById('col-'+k).addEventListener('input',function(e){S[k]=e.target.value;saveSettings();applySettings()})});
+document.getElementById('setReset').onclick=function(){S={a:null,b:null,c:null};saveSettings();applySettings()};
+document.getElementById('setBtn').onclick=function(){var p=document.getElementById('settings'),open=p.style.display!=='flex';p.style.display=open?'flex':'none';this.classList.toggle('on',open)};
+applySettings();
+document.getElementById('m2').onclick=function(){cpu=false;init()};
+document.getElementById('m1').onclick=function(){cpu=true;init()};
+document.getElementById('reset').onclick=init;
+document.getElementById('undo').onclick=undo;
+init();
+})();
+</script>
+</body>
+</html>
